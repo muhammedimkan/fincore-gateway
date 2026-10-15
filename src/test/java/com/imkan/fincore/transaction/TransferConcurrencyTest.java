@@ -57,7 +57,7 @@ class TransferConcurrencyTest {
 
                 ready.countDown();
                 go.await();
-                return transferService.transfer(ownerId, request);
+                return transferService.transfer(ownerId, UUID.randomUUID().toString(), request);
             }));
         }
 

@@ -18,7 +18,7 @@ public class TransactionController {
     private final TransferService transferService;
 
     @PostMapping("/api/transfers")
-    public ResponseEntity<TransactionResponse> transfer(@RequestHeader("X-User-Id") Long userid, @Valid @RequestBody TransferRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(transferService.transfer(userid, request));
+    public ResponseEntity<TransactionResponse> transfer(@RequestHeader("X-User-Id") Long userid, @RequestHeader("Idempotency-Key") String idempotencyKey, @Valid @RequestBody TransferRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(transferService.transfer(userid, idempotencyKey, request));
     }
 }

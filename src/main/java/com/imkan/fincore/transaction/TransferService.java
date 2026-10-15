@@ -4,30 +4,43 @@ import com.imkan.fincore.account.Account;
 import com.imkan.fincore.account.AccountRepository;
 import com.imkan.fincore.exception.AccountAccessDeniedException;
 import com.imkan.fincore.exception.AccountNotFoundException;
+import com.imkan.fincore.idempotency.IdempotencyKey;
+import com.imkan.fincore.idempotency.IdempotencyKeyRepository;
 import com.imkan.fincore.transaction.dto.TransactionResponse;
 import com.imkan.fincore.transaction.dto.TransferRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @AllArgsConstructor
 public class TransferService {
 
+    private static final String PATH = "/api/transfers";
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
+    private final IdempotencyKeyRepository idempotencyKeyRepository;
+    private final ObjectMapper objectMapper;
 
     @Transactional
-    public TransactionResponse transfer(Long userId, TransferRequest request){
+    public TransactionResponse transfer(Long userId, String idempotencyKey, TransferRequest request){
+
+        Optional<IdempotencyKey> existing = idempotencyKeyRepository.findByKeyStringAndUserIdAndRequestPath(idempotencyKey, userId, PATH);
+        if (existing.isPresent()) {
+            return objectMapper.readValue(existing.get().getResponsePayload(), TransactionResponse.class);
+        }
+
         boolean senderExists = accountRepository.existsByAccountNumber(request.getSenderAccountNumber());
-        boolean hasaccess = accountRepository.existsByAccountNumberAndUserId(request.getSenderAccountNumber(), userId);
+        boolean hasAccess = accountRepository.existsByAccountNumberAndUserId(request.getSenderAccountNumber(), userId);
         if (!senderExists) {
             throw new AccountNotFoundException(request.getSenderAccountNumber());
         }
-        else if (!hasaccess) {
+        else if (!hasAccess) {
             throw new AccountAccessDeniedException();
         }
 
@@ -69,20 +82,29 @@ public class TransferService {
         transactionRepository.save(transaction);
 
         if (transaction.getStatus().equals(TransactionStatus.COMPLETED)) {
-            LedgerEntry sendentry = new LedgerEntry();
-            sendentry.setTransactionId(transaction.getId());
-            sendentry.setAccountId(sender.getId());
-            sendentry.setAmount(request.getAmount());
-            sendentry.setEntryType(EntryType.DEBIT);
-            ledgerEntryRepository.save(sendentry);
+            LedgerEntry sendEntry = new LedgerEntry();
+            sendEntry.setTransactionId(transaction.getId());
+            sendEntry.setAccountId(sender.getId());
+            sendEntry.setAmount(request.getAmount());
+            sendEntry.setEntryType(EntryType.DEBIT);
+            ledgerEntryRepository.save(sendEntry);
 
-            LedgerEntry receiveentry = new LedgerEntry();
-            receiveentry.setTransactionId(transaction.getId());
-            receiveentry.setAccountId(receiver.getId());
-            receiveentry.setAmount(request.getAmount());
-            receiveentry.setEntryType(EntryType.CREDIT);
-            ledgerEntryRepository.save(receiveentry);
+            LedgerEntry receiveEntry = new LedgerEntry();
+            receiveEntry.setTransactionId(transaction.getId());
+            receiveEntry.setAccountId(receiver.getId());
+            receiveEntry.setAmount(request.getAmount());
+            receiveEntry.setEntryType(EntryType.CREDIT);
+            ledgerEntryRepository.save(receiveEntry);
         }
-        return TransactionResponse.build(transaction, sender, receiver);
+        TransactionResponse response = TransactionResponse.build(transaction, sender, receiver);
+
+        IdempotencyKey record = new IdempotencyKey();
+        record.setKeyString(idempotencyKey);
+        record.setUserId(userId);
+        record.setRequestPath(PATH);
+        record.setResponsePayload(objectMapper.writeValueAsString(response));
+        idempotencyKeyRepository.save(record);
+
+        return response;
     }
 }
