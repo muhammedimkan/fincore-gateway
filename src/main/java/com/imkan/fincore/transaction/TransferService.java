@@ -64,7 +64,9 @@ public class TransferService {
         Transaction transaction =  new Transaction();
         transaction.setReferenceId(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         transaction.setSenderAccountId(sender.getId());
+        transaction.setSenderAccountNumber(sender.getAccountNumber());
         transaction.setReceiverAccountId(receiver.getId());
+        transaction.setReceiverAccountNumber(receiver.getAccountNumber());
         transaction.setAmount(request.getAmount());
         transaction.setStatus(TransactionStatus.PENDING);
 
@@ -96,7 +98,7 @@ public class TransferService {
             receiveEntry.setEntryType(EntryType.CREDIT);
             ledgerEntryRepository.save(receiveEntry);
         }
-        TransactionResponse response = TransactionResponse.build(transaction, sender, receiver);
+        TransactionResponse response = TransactionResponse.build(transaction);
 
         IdempotencyKey record = new IdempotencyKey();
         record.setKeyString(idempotencyKey);

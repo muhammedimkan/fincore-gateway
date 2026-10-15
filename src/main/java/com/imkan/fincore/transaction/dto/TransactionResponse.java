@@ -1,6 +1,5 @@
 package com.imkan.fincore.transaction.dto;
 
-import com.imkan.fincore.account.Account;
 import com.imkan.fincore.transaction.Transaction;
 import com.imkan.fincore.transaction.TransactionStatus;
 import lombok.AllArgsConstructor;
@@ -20,11 +19,11 @@ public class TransactionResponse {
     private final String failureReason;
     private final LocalDateTime createdAt;
 
-    public static TransactionResponse build(Transaction t, Account s, Account r){
+    public static TransactionResponse build(Transaction t){
         return new TransactionResponse(
                 t.getReferenceId(),
-                s.getAccountNumber(),
-                r.getAccountNumber(),
+                t.getSenderAccountNumber(),
+                t.getReceiverAccountNumber(),
                 t.getAmount(),
                 t.getStatus(),
                 t.getFailureReason(),

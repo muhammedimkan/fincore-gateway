@@ -25,8 +25,14 @@ public class Transaction {
     @Column(name = "sender_account_id", nullable = false)
     private Long senderAccountId;
 
+    @Column(name = "sender_account_number", nullable = false)
+    private String senderAccountNumber;
+
     @Column(name = "receiver_account_id", nullable = false)
     private Long receiverAccountId;
+
+    @Column(name = "receiver_account_number", nullable = false)
+    private String receiverAccountNumber;
 
     @Column(nullable = false)
     private BigDecimal amount;
